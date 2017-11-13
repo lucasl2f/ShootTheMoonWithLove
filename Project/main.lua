@@ -36,6 +36,9 @@ enemies = {}
 bgSpeed = 100
 bgMargin = 10
 
+p1joystick = nil
+joystickAxis = {x = 0, y = 0}
+
 function love.load ()
 	player = {x = 200, y = 710, speed = 200, img = nil}
 	player.img = love.graphics.newImage('Assets/Aircrafts/Aircraft_03.png')
@@ -82,6 +85,10 @@ function love.draw()
 	love.graphics.printf("fps: " .. tostring(love.timer.getFPS()), love.graphics:getWidth() - 130, 50, 120, "right")
 end
 
+function love.joystickadded(joystick)
+	p1joystick = joystick
+end
+
 function love.update (dt)
 	--exit game
 	if love.keyboard.isDown('escape') then
@@ -89,12 +96,17 @@ function love.update (dt)
 	end
 
 	--movement
+	if p1joystick ~= nil then
+		joystickAxis.x = p1joystick:getGamepadAxis("leftx")
+		--joystickAxis.y = p1joystick:getGamepadAxis("lefty")
+	end
+
 	if isAlive then
-		if love.keyboard.isDown('left', 'a') then
+		if love.keyboard.isDown('left', 'a') or joystickAxis.x < -0.2 then
 			if (player.x > 0) then
 				player.x = player.x - (player.speed * dt)
 			end
-		elseif love.keyboard.isDown('right', 'd') then
+		elseif love.keyboard.isDown('right', 'd') or joystickAxis.x > 0.2 then
 			if player.x < (love.graphics.getWidth() - player.img:getWidth()) then
 				player.x = player.x + (player.speed * dt)
 			end
@@ -114,6 +126,26 @@ function love.update (dt)
 			ShootWeapon[weaponIndex]()
 			canShoot = false
 			canShootTimer = canShootTimerMax
+		end
+
+		if p1joystick ~= nil then
+			if p1joystick:isGamepadDown('x') and canShoot then
+				ShootWeapon[1]()
+				canShoot = false
+				canShootTimer = canShootTimerMax
+			end
+
+			if p1joystick:isGamepadDown('y') and canShoot then
+				ShootWeapon[2]()
+				canShoot = false
+				canShootTimer = canShootTimerMax
+			end
+
+			if p1joystick:isGamepadDown('b') and canShoot then
+				ShootWeapon[3]()
+				canShoot = false
+				canShootTimer = canShootTimerMax
+			end
 		end
 	end
 
