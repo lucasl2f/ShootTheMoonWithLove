@@ -33,6 +33,7 @@ luac.out
 
 # Executables
 *.exe
+*.love
 *.out
 *.app
 *.i*86
