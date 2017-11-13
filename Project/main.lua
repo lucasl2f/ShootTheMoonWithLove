@@ -21,7 +21,7 @@ weaponIndex = 1
 canShoot = true
 canShootTimerMax = 0.2
 canShootTimer = canShootTimerMax
-createEnemyTimerMax = 0.4
+createEnemyTimerMax = 0.8
 createEnemyTimer = createEnemyTimerMax
 
 --Image Storage
@@ -71,7 +71,7 @@ function love.draw()
 	if isAlive then
 		love.graphics.draw(player.img, player.x, player.y)
 	else
-		love.graphics.print("Press 'R' to play", love.graphics:getWidth()/2 - 50, love.graphics:getHeight()/2-10)
+		love.graphics.print("Press 'R' of 'back' to play", love.graphics:getWidth()/2 - 50, love.graphics:getHeight()/2-10)
 	end
 
 	-- left info
@@ -91,7 +91,7 @@ end
 
 function love.update (dt)
 	--exit game
-	if love.keyboard.isDown('escape') then
+	if love.keyboard.isDown('escape') or (p1joystick ~= nil and p1joystick:isGamepadDown('start')) then
 		love.event.push('quit')
 	end
 
@@ -190,7 +190,6 @@ function love.update (dt)
 			table.remove(enemies, i)
 		end
 	end
-
 	
 	for i, enemy in ipairs(enemies) do
 		for j, bullet in ipairs(bullets) do
@@ -214,23 +213,10 @@ function love.update (dt)
 	end
 
 	-- restart
-	if not isAlive and love.keyboard.isDown('r') then
-		bullets = {}
-		enemies = {}
-
-		canShootTimer = canShootTimerMax
-		createEnemyTimer = createEnemyTimerMax
-
-		player.x = 50
-		player.y = 710
-
-		score = 0
-		isAlive = true
-		lives = livesMax
-
-		background1.y = love.graphics:getHeight() - background1.img:getHeight()
-		background2.y = background1.y - background2.img:getHeight() + bgMargin
-		background3.y = background2.y - background3.img:getHeight() + bgMargin * 2
+	if not isAlive then
+		if love.keyboard.isDown('r') or (p1joystick ~= nil and p1joystick:isGamepadDown('back')) then
+			RestartGame()
+		end
 	end
 
 	-- background
@@ -249,6 +235,25 @@ function love.update (dt)
 	if background3.y > love.graphics:getHeight() then
 		background3.y = -background3.img:getHeight()
 	end
+end
+
+function RestartGame () 
+	bullets = {}
+	enemies = {}
+
+	canShootTimer = canShootTimerMax
+	createEnemyTimer = createEnemyTimerMax
+
+	player.x = 50
+	player.y = 710
+
+	score = 0
+	isAlive = true
+	lives = livesMax
+
+	background1.y = love.graphics:getHeight() - background1.img:getHeight()
+	background2.y = background1.y - background2.img:getHeight() + bgMargin
+	background3.y = background2.y - background3.img:getHeight() + bgMargin * 2
 end
 
 -- change weapon
