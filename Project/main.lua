@@ -16,6 +16,7 @@ score = 0
 livesMax = 3
 lives = 0
 weaponIndex = 1
+weaponsAmmo = {}
 
 --Timers
 canShoot = true
@@ -23,6 +24,12 @@ canShootTimerMax = 0.2
 canShootTimer = canShootTimerMax
 createEnemyTimerMax = 0.8
 createEnemyTimer = createEnemyTimerMax
+playerBlinkTimerMax = 0.1
+playerBlinkTimer = playerBlinkTimerMax
+playerBlinkQuantityMax = 20
+playerBlinkQuantity = playerBlinkQuantityMax
+playerTookDamage = false
+playerHideGraphic = false
 
 --Image Storage
 bulletImg = nil
@@ -42,10 +49,14 @@ joystickAxis = {x = 0, y = 0}
 function love.load ()
 	player = {x = 200, y = 710, speed = 200, img = nil}
 	player.img = love.graphics.newImage('Assets/Aircrafts/Aircraft_03.png')
+	weaponsAmmo = {w1 = nil, w2 = 30, w3 = 10}
 
 	bulletImg = love.graphics.newImage('Assets/Bullets/bullet_2_blue.png')
 	bullet1Img = love.graphics.newImage('Assets/Bullets/bullet_2_orange.png')
+
 	enemyImg = love.graphics.newImage('Assets/Aircrafts/enemy.png')
+	enemy = {x = 0, y = 0, img = enemyImg, randomFactor = 0}
+
 	background1 = {x = 0, y = 0, img = love.graphics.newImage('Assets/Backgrounds/background1.png')}
 	background2 = {x = 0, y = 0, img = love.graphics.newImage('Assets/Backgrounds/background2.png')}
 	background3 = {x = 0, y = 0, img = love.graphics.newImage('Assets/Backgrounds/background3.png')}
@@ -69,7 +80,20 @@ function love.draw()
 	end
 
 	if isAlive then
-		love.graphics.draw(player.img, player.x, player.y)
+		if not playerHideGraphic then
+			if playerTookDamage then
+				love.graphics.setColor(230, 10, 10)
+			else
+				love.graphics.setColor(255, 255, 255)
+			end
+			love.graphics.draw(player.img, player.x, player.y)
+		end
+
+		if weaponIndex == 2 and weaponsAmmo.w2 == 0 then
+			love.graphics.print("Weapon 2 is out of ammo!", love.graphics:getWidth()/2 - 50, love.graphics:getHeight()/2-10)
+		elseif weaponIndex == 3 and weaponsAmmo.w3 == 0 then
+			love.graphics.print("Weapon 3 is out of ammo!", love.graphics:getWidth()/2 - 50, love.graphics:getHeight()/2-10)
+		end
 	else
 		love.graphics.print("Press 'R' of 'back' to play", love.graphics:getWidth()/2 - 50, love.graphics:getHeight()/2-10)
 	end
@@ -77,6 +101,7 @@ function love.draw()
 	-- left info
 	love.graphics.print("Score: " .. tostring(score), 10, 10)
 	love.graphics.print("Lives: " .. tostring(lives), 10, 30)
+	love.graphics.print("Ammo: ~, " .. tostring(weaponsAmmo.w2) .. ", " .. tostring(weaponsAmmo.w3), 10, 50)
 
 	-- right info
 	love.graphics.setColor(255, 255, 10)
@@ -113,7 +138,23 @@ function love.update (dt)
 		end
 	end
 
-	--shoot
+	-- damage
+	if playerTookDamage then
+		playerBlinkTimer = playerBlinkTimer - (1* dt)
+		if playerBlinkTimer < 0 then
+			playerBlinkTimer = playerBlinkTimerMax
+			playerBlinkQuantity = playerBlinkQuantity - 1
+			playerHideGraphic = not playerHideGraphic
+			
+			if playerBlinkQuantity <= 0 then
+				playerTookDamage = false
+				playerHideGraphic = false
+				playerBlinkQuantity = playerBlinkQuantityMax
+			end
+		end
+	end
+
+	-- shoot
 	if isAlive then
 		canShootTimer = canShootTimer - (1 * dt)
 		if canShootTimer < 0 then
@@ -124,27 +165,23 @@ function love.update (dt)
 			--newBullet = {x = player.x + (player.img:getWidth()/2 - bulletImg:getWidth()/2), y = player.y, img = bulletImg}
 			--table.insert(bullets, newBullet)
 			ShootWeapon[weaponIndex]()
-			canShoot = false
-			canShootTimer = canShootTimerMax
+		end
+
+		if love.mouse.isDown (1) and canShoot then
+			ShootWeapon[weaponIndex]()
 		end
 
 		if p1joystick ~= nil then
 			if p1joystick:isGamepadDown('x') and canShoot then
 				ShootWeapon[1]()
-				canShoot = false
-				canShootTimer = canShootTimerMax
 			end
 
 			if p1joystick:isGamepadDown('y') and canShoot then
 				ShootWeapon[2]()
-				canShoot = false
-				canShootTimer = canShootTimerMax
 			end
 
 			if p1joystick:isGamepadDown('b') and canShoot then
 				ShootWeapon[3]()
-				canShoot = false
-				canShootTimer = canShootTimerMax
 			end
 		end
 	end
@@ -178,13 +215,13 @@ function love.update (dt)
 
 			--create
 			randomNumber = math.random(10, love.graphics.getWidth() - 10)
-			newEnemy = {x = randomNumber, y = -10, img = enemyImg}
+			newEnemy = {x = randomNumber, y = -10, img = enemyImg, randomFactor = math.random(-100, 100)}
 			table.insert(enemies, newEnemy)
 		end
 	end
 
 	for i, enemy in ipairs(enemies) do
-		enemy.y = enemy.y + (200 * dt)
+		enemy.y = enemy.y + (200 + enemy.randomFactor) * dt
 
 		if enemy.y > 850 then
 			table.remove(enemies, i)
@@ -202,12 +239,16 @@ function love.update (dt)
 			end
 		end
 
-		if CheckCollision(enemy.x, enemy.y, enemy.img:getWidth(), enemy.img:getHeight(), player.x, player.y, player.img:getWidth(), player.img:getHeight()) then
-			table.remove(enemies, i)
-			lives = lives - 1
+		if not playerTookDamage then
+			if CheckCollision(enemy.x, enemy.y, enemy.img:getWidth(), enemy.img:getHeight(), player.x, player.y, player.img:getWidth(), player.img:getHeight()) then
+				table.remove(enemies, i)
+				lives = lives - 1
+				playerTookDamage = true
+				playerHideGraphic = true
 
-			if lives == 0 then
-				isAlive = false
+				if lives == 0 then
+					isAlive = false
+				end
 			end
 		end
 	end
@@ -220,20 +261,22 @@ function love.update (dt)
 	end
 
 	-- background
-	background1.y = background1.y + bgSpeed * dt
-	background2.y = background2.y + bgSpeed * dt
-	background3.y = background3.y + bgSpeed * dt
+	if isAlive then
+		background1.y = background1.y + bgSpeed * dt
+		background2.y = background2.y + bgSpeed * dt
+		background3.y = background3.y + bgSpeed * dt
 
-	if background1.y > love.graphics:getHeight() then
-		background1.y = -background1.img:getHeight()
-	end
+		if background1.y > love.graphics:getHeight() then
+			background1.y = -background1.img:getHeight()
+		end
 
-	if background2.y > love.graphics:getHeight() then
-		background2.y = -background2.img:getHeight()
-	end
+		if background2.y > love.graphics:getHeight() then
+			background2.y = -background2.img:getHeight()
+		end
 
-	if background3.y > love.graphics:getHeight() then
-		background3.y = -background3.img:getHeight()
+		if background3.y > love.graphics:getHeight() then
+			background3.y = -background3.img:getHeight()
+		end
 	end
 end
 
@@ -243,6 +286,11 @@ function RestartGame ()
 
 	canShootTimer = canShootTimerMax
 	createEnemyTimer = createEnemyTimerMax
+	canShoot = true
+	playerBlinkTimer = playerBlinkTimerMax
+	playerBlinkQuantity = playerBlinkQuantityMax
+	playerTookDamage = false
+	playerHideGraphic = false
 
 	player.x = 50
 	player.y = 710
@@ -259,21 +307,33 @@ end
 -- change weapon
 ShootWeapon = {
 	[1] = function ()
+			canShoot = false
+			canShootTimer = canShootTimerMax
 			newBullet = {x = player.x + (player.img:getWidth()/2 - bulletImg:getWidth()/2), y = player.y, img = bulletImg}
 			table.insert(bullets, newBullet)
 		end,
 	[2] = function ()
-			newBullet = {x = player.x + 10, y = player.y + 15, img = bullet1Img}
-			table.insert(bullets, newBullet)
-			newBullet1 = {x = player.x + (player.img:getWidth() - 10), y = player.y + 15, img = bullet1Img}
-			table.insert(bullets, newBullet1)
+			if weaponsAmmo.w2 > 0 then
+				canShoot = false
+				canShootTimer = canShootTimerMax
+				newBullet = {x = player.x + 10, y = player.y + 15, img = bullet1Img}
+				table.insert(bullets, newBullet)
+				newBullet1 = {x = player.x + (player.img:getWidth() - 10), y = player.y + 15, img = bullet1Img}
+				table.insert(bullets, newBullet1)
+				weaponsAmmo.w2 = weaponsAmmo.w2 - 1
+			end
 		end,
 	[3] = function ()
-			newBullet = {x = player.x + (player.img:getWidth()/2 - bulletImg:getWidth()/2), y = player.y, img = bulletImg}
-			table.insert(bullets, newBullet)
-			newBullet1 = {x = player.x + 10, y = player.y + 15, img = bullet1Img}
-			table.insert(bullets, newBullet1)
-			newBullet2 = {x = player.x + (player.img:getWidth() - 20), y = player.y + 15, img = bullet1Img}
-			table.insert(bullets, newBullet2)
+			if weaponsAmmo.w3 > 0 then
+				canShoot = false
+				canShootTimer = canShootTimerMax
+				newBullet = {x = player.x + (player.img:getWidth()/2 - bulletImg:getWidth()/2), y = player.y, img = bulletImg}
+				table.insert(bullets, newBullet)
+				newBullet1 = {x = player.x + 10, y = player.y + 15, img = bullet1Img}
+				table.insert(bullets, newBullet1)
+				newBullet2 = {x = player.x + (player.img:getWidth() - 20), y = player.y + 15, img = bullet1Img}
+				table.insert(bullets, newBullet2)
+				weaponsAmmo.w3 = weaponsAmmo.w3 - 1
+			end
 		end,
 }
