@@ -31,6 +31,10 @@ playerBlinkQuantity = playerBlinkQuantityMax
 playerTookDamage = false
 playerHideGraphic = false
 
+-- weapon cooldown
+cooldownTimerThreshold = 3
+cooldownTimer = 0
+
 --Image Storage
 bulletImg = nil
 enemyImg = nil
@@ -63,6 +67,9 @@ function love.load ()
 	background1.y = love.graphics:getHeight() - background1.img:getHeight()
 	background2.y = background1.y - background2.img:getHeight() + bgMargin
 	background3.y = background2.y - background3.img:getHeight() + bgMargin * 2
+
+	--animation rotor
+	animation = newAnimation(love.graphics.newImage("Assets/Aircrafts/rotorSheet.png"), 48, 8, 0.2)
 end
 
 function love.draw()
@@ -87,8 +94,13 @@ function love.draw()
 				love.graphics.setColor(255, 255, 255)
 			end
 			love.graphics.draw(player.img, player.x, player.y)
+			
+			--animation rotor
+			local spriteNum = math.floor(animation.currentTime / animation.duration * #animation.quads) + 1
+			love.graphics.draw(animation.spriteSheet, animation.quads[spriteNum], player.x + player.img:getWidth() / 2 - 24, player.y, 0, 1)
 		end
 
+		love.graphics.setColor(255, 255, 255)
 		if weaponIndex == 2 and weaponsAmmo.w2 == 0 then
 			love.graphics.print("Weapon 2 is out of ammo!", love.graphics:getWidth()/2 - 50, love.graphics:getHeight()/2-10)
 		elseif weaponIndex == 3 and weaponsAmmo.w3 == 0 then
@@ -98,10 +110,19 @@ function love.draw()
 		love.graphics.print("Press 'R' of 'back' to play", love.graphics:getWidth()/2 - 50, love.graphics:getHeight()/2-10)
 	end
 
+	love.graphics.rectangle('line', 5, 5, 120, 80)
+
 	-- left info
 	love.graphics.print("Score: " .. tostring(score), 10, 10)
 	love.graphics.print("Lives: " .. tostring(lives), 10, 30)
 	love.graphics.print("Ammo: ~, " .. tostring(weaponsAmmo.w2) .. ", " .. tostring(weaponsAmmo.w3), 10, 50)
+
+	if cooldownTimer > cooldownTimerThreshold then
+		love.graphics.setColor(230, 10, 10)
+	else
+		love.graphics.setColor(255, 255, 255)
+	end
+	love.graphics.print("Cooldown: " .. string.format("%.1f", tostring(cooldownTimer)), 10, 70)
 
 	-- right info
 	love.graphics.setColor(255, 255, 10)
@@ -157,8 +178,14 @@ function love.update (dt)
 	-- shoot
 	if isAlive then
 		canShootTimer = canShootTimer - (1 * dt)
-		if canShootTimer < 0 then
+		if canShootTimer < 0 and cooldownTimer < cooldownTimerThreshold then
 			canShoot = true
+		end
+
+		if cooldownTimer > 0 then
+			cooldownTimer = cooldownTimer - (1*dt)
+		else
+			cooldownTimer = 0
 		end
 
 		if love.keyboard.isDown('space', 'rctrl', 'lctrl', 'ctrl') and canShoot then
@@ -278,6 +305,12 @@ function love.update (dt)
 			background3.y = -background3.img:getHeight()
 		end
 	end
+
+	-- animation
+	animation.currentTime = animation.currentTime + dt
+	if animation.currentTime >= animation.duration then
+		animation.currentTime = animation.currentTime - animation.duration
+	end
 end
 
 function RestartGame () 
@@ -304,11 +337,30 @@ function RestartGame ()
 	background3.y = background2.y - background3.img:getHeight() + bgMargin * 2
 end
 
+-- animation
+function newAnimation(image, width, height, duration)
+	local animation = {}
+	animation.spriteSheet = image
+	animation.quads = {}
+
+	for y = 0, image:getHeight() - height, height do
+		for x = 0, image:getWidth() - width, width do
+			table.insert(animation.quads, love.graphics.newQuad(x, y, width, height, image:getDimensions()))
+		end
+	end
+
+	animation.duration = duration or 1
+	animation.currentTime = 0
+
+	return animation
+end
+
 -- change weapon
 ShootWeapon = {
 	[1] = function ()
 			canShoot = false
 			canShootTimer = canShootTimerMax
+			cooldownTimer = cooldownTimer + 0.7
 			newBullet = {x = player.x + (player.img:getWidth()/2 - bulletImg:getWidth()/2), y = player.y, img = bulletImg}
 			table.insert(bullets, newBullet)
 		end,
@@ -316,6 +368,7 @@ ShootWeapon = {
 			if weaponsAmmo.w2 > 0 then
 				canShoot = false
 				canShootTimer = canShootTimerMax
+				cooldownTimer = cooldownTimer + 1
 				newBullet = {x = player.x + 10, y = player.y + 15, img = bullet1Img}
 				table.insert(bullets, newBullet)
 				newBullet1 = {x = player.x + (player.img:getWidth() - 10), y = player.y + 15, img = bullet1Img}
@@ -327,6 +380,7 @@ ShootWeapon = {
 			if weaponsAmmo.w3 > 0 then
 				canShoot = false
 				canShootTimer = canShootTimerMax
+				cooldownTimer = cooldownTimer + 1.2
 				newBullet = {x = player.x + (player.img:getWidth()/2 - bulletImg:getWidth()/2), y = player.y, img = bulletImg}
 				table.insert(bullets, newBullet)
 				newBullet1 = {x = player.x + 10, y = player.y + 15, img = bullet1Img}
